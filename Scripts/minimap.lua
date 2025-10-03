@@ -1,5 +1,5 @@
 -- Minimap Script
--- v2.2 - Refactored to use Server.playerSessions and correct object model.
+-- v2.3 - Refactored to use the 'Server' table event model.
 -- Author: rei
 -- confidential script for thunder!
 --DO NOT SHARE,THIS IS ONLY PRIVATE
@@ -49,7 +49,7 @@ local playerMinimapState = {}
 
 --[[
   ============================================================================
-  UI Drawing and Clearing Functions
+  UI Drawing and Clearing Functions (Helper Functions)
   ============================================================================
 ]]
 
@@ -114,12 +114,6 @@ function ClearMinimap(playerPeer)
     ClearAllDots(playerPeer)
 end
 
---[[
-  ============================================================================
-  Core Logic
-  ============================================================================
-]]
-
 function WorldToMinimap(otherPlayerPos, localPlayer, config)
     local localPos = localPlayer.position
     local localYawRad = math.rad(localPlayer.rotation.y)
@@ -176,11 +170,23 @@ end
 
 --[[
   ============================================================================
-  Event Handlers (Global)
+  Event Handlers (Attached to Server Table)
   ============================================================================
 ]]
 
-function Minimap_OnGameTick(gameTick)
+-- Create the main Server table if it doesn't exist
+Server = Server or {}
+
+function Server:Start()
+    print("Minimap Script v2.3 Initialized.")
+end
+
+function Server:Stop()
+    playerMinimapState = {}
+    print("Minimap Script Stopped and Cleaned Up.")
+end
+
+function Server:OnGameTick(gameTick)
     if not Server or not Server.playerSessions then return end
     for _, peer in ipairs(Server.playerSessions) do
         if peer and peer.Player then
@@ -196,7 +202,7 @@ function Minimap_OnGameTick(gameTick)
     end
 end
 
-function Minimap_OnPlayerSpawn(player)
+function Server:OnPlayerSpawn(player)
     if player and player.Id ~= nil then
         local peer = Server.playerSessions[player.Id + 1]
         if peer then
@@ -206,7 +212,7 @@ function Minimap_OnPlayerSpawn(player)
     end
 end
 
-function Minimap_OnPlayerDied(player, killer, weapon, headshot)
+function Server:OnPlayerDied(player, killer, weapon, headshot)
     if player and player.Id ~= nil and playerMinimapState[player.Id] then
         local peer = Server.playerSessions[player.Id + 1]
         if peer then
@@ -216,38 +222,25 @@ function Minimap_OnPlayerDied(player, killer, weapon, headshot)
     end
 end
 
-function Minimap_OnPlayerDisconnected(player)
+function Server:OnPlayerLeft(player)
     if player and player.Id ~= nil and playerMinimapState[player.Id] then
         playerMinimapState[player.Id] = nil
     end
 end
 
-function Minimap_OnMatchStart()
-    if not Server or not Server.playerSessions then return end
-    for _, peer in ipairs(Server.playerSessions) do
-        if peer and peer.Player then
-            local player = peer.Player:get_NetworkEntityPlayer()
-            if player and not player:IsDead() and not player:IsSpectator() then
-                if not playerMinimapState[player.Id] then
-                     playerMinimapState[player.Id] = { frameDrawn = true, lastDotUpdate = 0 }
+function Server:RoomStateChanged(roomState)
+    if roomState == 6 then -- matchActive
+        if not Server or not Server.playerSessions then return end
+        for _, peer in ipairs(Server.playerSessions) do
+            if peer and peer.Player then
+                local player = peer.Player:get_NetworkEntityPlayer()
+                if player and not player:IsDead() and not player:IsSpectator() then
+                    if not playerMinimapState[player.Id] then
+                         playerMinimapState[player.Id] = { frameDrawn = true, lastDotUpdate = 0 }
+                    end
+                    DrawMinimapFrame(peer)
                 end
-                DrawMinimapFrame(peer)
             end
         end
     end
 end
-
---[[
-  Initialization
-]]
-function Init()
-    RegisterEvent("OnGameTick", "Minimap_OnGameTick")
-    RegisterEvent("OnPlayerSpawn", "Minimap_OnPlayerSpawn")
-    RegisterEvent("OnPlayerDied", "Minimap_OnPlayerDied")
-    RegisterEvent("OnPlayerDisconnected", "Minimap_OnPlayerDisconnected")
-    RegisterEvent("OnMatchStart", "Minimap_OnMatchStart")
-
-    Log("Minimap Script v2.2 Initialized.")
-end
-
-Init()
