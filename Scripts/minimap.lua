@@ -1,5 +1,5 @@
 -- Minimap Script
--- v2.4 - Corrected player state checks (get_Dead).
+-- v2.5 - Corrected property access via transform component.
 -- Author: rei
 -- confidential script for thunder!
 --DO NOT SHARE,THIS IS ONLY PRIVATE
@@ -115,8 +115,8 @@ function ClearMinimap(playerPeer)
 end
 
 function WorldToMinimap(otherPlayerPos, localPlayer, config)
-    local localPos = localPlayer.position
-    local localYawRad = math.rad(localPlayer.rotation.y)
+    local localPos = localPlayer.transform.position
+    local localYawRad = math.rad(localPlayer.transform.rotation.y)
     local cosYaw, sinYaw = math.cos(localYawRad), math.sin(localYawRad)
     local deltaPos = otherPlayerPos - localPos
     local rotatedX = deltaPos.x * cosYaw + deltaPos.z * sinYaw
@@ -125,7 +125,7 @@ function WorldToMinimap(otherPlayerPos, localPlayer, config)
 end
 
 function DrawPlayerDot(localPlayerPeer, localPlayer, otherPlayer, config)
-    local mapX, mapY = WorldToMinimap(otherPlayer.position, localPlayer, config)
+    local mapX, mapY = WorldToMinimap(otherPlayer.transform.position, localPlayer, config)
     local halfSize = config.size / 2
     local clampedX = math.max(-halfSize, math.min(halfSize, mapX))
     local clampedY = math.max(-halfSize, math.min(halfSize, mapY))
@@ -174,11 +174,10 @@ end
   ============================================================================
 ]]
 
--- Create the main Server table if it doesn't exist
 Server = Server or {}
 
 function Server:Start()
-    print("Minimap Script v2.4 Initialized.")
+    print("Minimap Script v2.5 Initialized.")
 end
 
 function Server:Stop()
