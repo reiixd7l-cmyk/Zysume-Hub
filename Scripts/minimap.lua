@@ -1,5 +1,5 @@
 -- Minimap Script
--- v2.5 - Corrected property access via transform component.
+-- v2.6 - Corrected player entity access to use direct properties.
 -- Author: rei
 -- confidential script for thunder!
 --DO NOT SHARE,THIS IS ONLY PRIVATE
@@ -115,6 +115,7 @@ function ClearMinimap(playerPeer)
 end
 
 function WorldToMinimap(otherPlayerPos, localPlayer, config)
+    if not localPlayer or not localPlayer.transform then return 0, 0 end
     local localPos = localPlayer.transform.position
     local localYawRad = math.rad(localPlayer.transform.rotation.y)
     local cosYaw, sinYaw = math.cos(localYawRad), math.sin(localYawRad)
@@ -125,6 +126,7 @@ function WorldToMinimap(otherPlayerPos, localPlayer, config)
 end
 
 function DrawPlayerDot(localPlayerPeer, localPlayer, otherPlayer, config)
+    if not otherPlayer or not otherPlayer.transform then return end
     local mapX, mapY = WorldToMinimap(otherPlayer.transform.position, localPlayer, config)
     local halfSize = config.size / 2
     local clampedX = math.max(-halfSize, math.min(halfSize, mapX))
@@ -152,7 +154,7 @@ end
 
 function UpdateMinimapDots(localPlayerPeer)
     if not localPlayerPeer or not localPlayerPeer.Player then return end
-    local localPlayer = localPlayerPeer.Player:get_NetworkEntityPlayer()
+    local localPlayer = localPlayerPeer.Player.NetworkEntityPlayer
     if not localPlayer then return end
 
     ClearAllDots(localPlayerPeer)
@@ -160,7 +162,7 @@ function UpdateMinimapDots(localPlayerPeer)
     if not Server or not Server.playerSessions then return end
     for _, otherPeer in ipairs(Server.playerSessions) do
         if otherPeer and otherPeer.Player then
-            local otherPlayer = otherPeer.Player:get_NetworkEntityPlayer()
+            local otherPlayer = otherPeer.Player.NetworkEntityPlayer
             if otherPlayer and not otherPlayer:get_Dead() then
                 DrawPlayerDot(localPlayerPeer, localPlayer, otherPlayer, minimapConfig)
             end
@@ -177,7 +179,7 @@ end
 Server = Server or {}
 
 function Server:Start()
-    print("Minimap Script v2.5 Initialized.")
+    print("Minimap Script v2.6 Initialized.")
 end
 
 function Server:Stop()
@@ -189,7 +191,7 @@ function Server:OnGameTick(gameTick)
     if not Server or not Server.playerSessions then return end
     for _, peer in ipairs(Server.playerSessions) do
         if peer and peer.Player then
-            local player = peer.Player:get_NetworkEntityPlayer()
+            local player = peer.Player.NetworkEntityPlayer
             if player and not player:get_Dead() then
                 local state = playerMinimapState[player.Id]
                 if state and gameTick > state.lastDotUpdate + minimapConfig.dotTickRate then
@@ -232,7 +234,7 @@ function Server:RoomStateChanged(roomState)
         if not Server or not Server.playerSessions then return end
         for _, peer in ipairs(Server.playerSessions) do
             if peer and peer.Player then
-                local player = peer.Player:get_NetworkEntityPlayer()
+                local player = peer.Player.NetworkEntityPlayer
                 if player and not player:get_Dead() then
                     if not playerMinimapState[player.Id] then
                          playerMinimapState[player.Id] = { frameDrawn = true, lastDotUpdate = 0 }
