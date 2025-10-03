@@ -1,5 +1,5 @@
 -- Minimap Script
--- v2.3 - Refactored to use the 'Server' table event model.
+-- v2.4 - Corrected player state checks (get_Dead).
 -- Author: rei
 -- confidential script for thunder!
 --DO NOT SHARE,THIS IS ONLY PRIVATE
@@ -161,7 +161,7 @@ function UpdateMinimapDots(localPlayerPeer)
     for _, otherPeer in ipairs(Server.playerSessions) do
         if otherPeer and otherPeer.Player then
             local otherPlayer = otherPeer.Player:get_NetworkEntityPlayer()
-            if otherPlayer and not otherPlayer:IsDead() and not otherPlayer:IsSpectator() then
+            if otherPlayer and not otherPlayer:get_Dead() then
                 DrawPlayerDot(localPlayerPeer, localPlayer, otherPlayer, minimapConfig)
             end
         end
@@ -178,7 +178,7 @@ end
 Server = Server or {}
 
 function Server:Start()
-    print("Minimap Script v2.3 Initialized.")
+    print("Minimap Script v2.4 Initialized.")
 end
 
 function Server:Stop()
@@ -191,7 +191,7 @@ function Server:OnGameTick(gameTick)
     for _, peer in ipairs(Server.playerSessions) do
         if peer and peer.Player then
             local player = peer.Player:get_NetworkEntityPlayer()
-            if player and not player:IsDead() and not player:IsSpectator() then
+            if player and not player:get_Dead() then
                 local state = playerMinimapState[player.Id]
                 if state and gameTick > state.lastDotUpdate + minimapConfig.dotTickRate then
                     UpdateMinimapDots(peer)
@@ -234,7 +234,7 @@ function Server:RoomStateChanged(roomState)
         for _, peer in ipairs(Server.playerSessions) do
             if peer and peer.Player then
                 local player = peer.Player:get_NetworkEntityPlayer()
-                if player and not player:IsDead() and not player:IsSpectator() then
+                if player and not player:get_Dead() then
                     if not playerMinimapState[player.Id] then
                          playerMinimapState[player.Id] = { frameDrawn = true, lastDotUpdate = 0 }
                     end
