@@ -1,5 +1,5 @@
 -- Minimap Script
--- v2.6 - Corrected player entity access to use direct properties.
+-- v2.8 - Added nil checks for transform component.
 -- Author: rei
 -- confidential script for thunder!
 --DO NOT SHARE,THIS IS ONLY PRIVATE
@@ -115,7 +115,9 @@ function ClearMinimap(playerPeer)
 end
 
 function WorldToMinimap(otherPlayerPos, localPlayer, config)
-    if not localPlayer or not localPlayer.transform then return 0, 0 end
+    if not localPlayer or not localPlayer.transform or not localPlayer.transform.position or not localPlayer.transform.rotation then
+        return 0, 0
+    end
     local localPos = localPlayer.transform.position
     local localYawRad = math.rad(localPlayer.transform.rotation.y)
     local cosYaw, sinYaw = math.cos(localYawRad), math.sin(localYawRad)
@@ -126,7 +128,7 @@ function WorldToMinimap(otherPlayerPos, localPlayer, config)
 end
 
 function DrawPlayerDot(localPlayerPeer, localPlayer, otherPlayer, config)
-    if not otherPlayer or not otherPlayer.transform then return end
+    if not otherPlayer or not otherPlayer.transform or not otherPlayer.transform.position then return end
     local mapX, mapY = WorldToMinimap(otherPlayer.transform.position, localPlayer, config)
     local halfSize = config.size / 2
     local clampedX = math.max(-halfSize, math.min(halfSize, mapX))
@@ -179,7 +181,7 @@ end
 Server = Server or {}
 
 function Server:Start()
-    print("Minimap Script v2.6 Initialized.")
+    print("Minimap Script v2.8 Initialized.")
 end
 
 function Server:Stop()
