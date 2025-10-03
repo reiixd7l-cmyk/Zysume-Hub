@@ -1,5 +1,20 @@
 -- Minimap Script
--- v2.0 - Refactored for performance and stability.
+-- Author: rei
+-- confidential script for thunder!
+--DO NOT SHARE,THIS IS ONLY PRIVATE
+
+-- ₲₳₮Ɇ₭ɆɆ₱ ɎØɄⱤ ₵ØĐɆ..
+--In lines and loops your craft does lie,
+--A treasure hidden from prying eyes.
+--Share too freely, the sly will creep,
+--And steal the work you vowed to keep.
+
+--Guard your logic, lock your gates,
+--Protect the keys that open fates.
+--For in this world of code and scheme,
+--Only the careful hold the dream.
+-- protect this at all cost.
+
 
 --[[
   Configuration
@@ -41,10 +56,6 @@ local playerMinimapState = {}
   ============================================================================
 ]]
 
---[[
-  Draws the static UI for the minimap (background and border) for a single player.
-  This should only be called once per spawn.
-]]
 function DrawMinimapFrame(playerPeer)
     local players = { playerPeer }
     local spectators = {}
@@ -103,9 +114,6 @@ function DrawMinimapFrame(playerPeer)
     end
 end
 
---[[
-  Clears the static minimap frame for a player.
-]]
 function ClearMinimapFrame(playerPeer)
     local players = { playerPeer }
     local startId = minimapConfig.frameBaseId
@@ -115,9 +123,6 @@ function ClearMinimapFrame(playerPeer)
     end
 end
 
---[[
-  Clears all player dots for a specific viewing player.
-]]
 function ClearAllDots(playerPeer)
     local players = { playerPeer }
     local startId = minimapConfig.dotsBaseId
@@ -127,9 +132,6 @@ function ClearAllDots(playerPeer)
     end
 end
 
---[[
-  Clears the entire minimap (frame and dots) for a player.
-]]
 function ClearMinimap(playerPeer)
     ClearMinimapFrame(playerPeer)
     ClearAllDots(playerPeer)
@@ -141,9 +143,6 @@ end
   ============================================================================
 ]]
 
---[[
-  Calculates a player's position on the minimap relative to the local player.
-]]
 function WorldToMinimap(otherPlayerPos, localPlayer, config)
     local localPos = localPlayer.position
     local localYawRad = math.rad(localPlayer.rotation.y)
@@ -154,10 +153,6 @@ function WorldToMinimap(otherPlayerPos, localPlayer, config)
     return rotatedX / config.scale, -rotatedZ / config.scale
 end
 
---[[
-  Draws a single player dot on the minimap.
-  Uses a predictable event ID based on the dot-player's ID.
-]]
 function DrawPlayerDot(localPlayer, otherPlayer, config)
     local mapX, mapY = WorldToMinimap(otherPlayer.position, localPlayer, config)
     local halfSize = config.size / 2
@@ -174,10 +169,8 @@ function DrawPlayerDot(localPlayer, otherPlayer, config)
     local screenX = config.x + halfSize + clampedX - (config.dotSize / 2)
     local screenY = config.y + halfSize + clampedY - (config.dotSize / 2)
 
-    -- Use a predictable Event ID for each dot based on the player being drawn
     local dotEventId = config.dotsBaseId + otherPlayer.Id
     local players = { localPlayer.Peer }
-    -- Duration should be slightly longer than the tick rate to avoid flickering
     local duration = config.dotTickRate + 0.05
 
     ServerSendNetLib.EventMessage(players, {}, "", "", Util.EventType.Box,
@@ -186,12 +179,7 @@ function DrawPlayerDot(localPlayer, otherPlayer, config)
         config.dotFadeIn, config.dotFadeOut)
 end
 
---[[
-  Main update loop for player dots.
-]]
 function UpdateMinimapDots(player)
-    -- This clears all dot IDs. Since we're redrawing them immediately with a short duration,
-    -- this is effectively a refresh, not a flicker.
     ClearAllDots(player.Peer)
 
     local allPlayers = GameServer.GameManager.Instance.players
@@ -204,18 +192,16 @@ end
 
 --[[
   ============================================================================
-  Event Handlers
+  Event Handlers (Global)
   ============================================================================
 ]]
-local minimap_handlers = {}
 
-function minimap_handlers:OnGameTick(gameTick)
+function Minimap_OnGameTick(gameTick)
     local allPlayers = GameServer.GameManager.Instance.players
     for _, player in pairs(allPlayers) do
         if player and not player:IsDead() and not player:IsSpectator() then
             local state = playerMinimapState[player.Id]
             if state then
-                -- Throttle dot updates for performance
                 if gameTick > state.lastDotUpdate + minimapConfig.dotTickRate then
                     UpdateMinimapDots(player)
                     state.lastDotUpdate = gameTick
@@ -225,29 +211,27 @@ function minimap_handlers:OnGameTick(gameTick)
     end
 end
 
-function minimap_handlers:OnPlayerSpawn(player)
+function Minimap_OnPlayerSpawn(player)
     if player then
         playerMinimapState[player.Id] = { frameDrawn = true, lastDotUpdate = 0 }
         DrawMinimapFrame(player.Peer)
     end
 end
 
-function minimap_handlers:OnPlayerDied(player, killer, weapon, headshot)
+function Minimap_OnPlayerDied(player, killer, weapon, headshot)
     if player and playerMinimapState[player.Id] then
         ClearMinimap(player.Peer)
         playerMinimapState[player.Id] = nil
     end
 end
 
-function minimap_handlers:OnPlayerDisconnected(player)
+function Minimap_OnPlayerDisconnected(player)
     if player and playerMinimapState[player.Id] then
-        -- No need to clear UI for a disconnected player, the client will handle it.
         playerMinimapState[player.Id] = nil
     end
 end
 
-function minimap_handlers:OnMatchStart()
-    -- This is a good place to ensure all players get the frame.
+function Minimap_OnMatchStart()
     local allPlayers = GameServer.GameManager.Instance.players
     for _, player in pairs(allPlayers) do
         if player and not player:IsDead() and not player:IsSpectator() then
@@ -263,15 +247,13 @@ end
   Initialization
 ]]
 function Init()
-    local handlerInstance = setmetatable({}, { __index = minimap_handlers })
+    RegisterEvent("OnGameTick", "Minimap_OnGameTick")
+    RegisterEvent("OnPlayerSpawn", "Minimap_OnPlayerSpawn")
+    RegisterEvent("OnPlayerDied", "Minimap_OnPlayerDied")
+    RegisterEvent("OnPlayerDisconnected", "Minimap_OnPlayerDisconnected")
+    RegisterEvent("OnMatchStart", "Minimap_OnMatchStart")
 
-    RegisterEventHandler("OnGameTick", "OnGameTick", handlerInstance)
-    RegisterEventHandler("OnPlayerSpawn", "OnPlayerSpawn", handlerInstance)
-    RegisterEventHandler("OnPlayerDied", "OnPlayerDied", handlerInstance)
-    RegisterEventHandler("OnPlayerDisconnected", "OnPlayerDisconnected", handlerInstance)
-    RegisterEventHandler("OnMatchStart", "OnMatchStart", handlerInstance)
-
-    Log("Minimap Script v2.0 Initialized.")
+    Log("Minimap Script v2.1 Initialized.")
 end
 
 Init()
