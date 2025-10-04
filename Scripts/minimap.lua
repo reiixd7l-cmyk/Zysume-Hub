@@ -1,13 +1,13 @@
 -- ==========================================
--- 🗺️ ASCII Minimap v2.0 (Fixed)
--- Works on Kontra uLua (EventCmd method)
+-- 🗺️ ASCII Minimap v3.0 (Fixed with EventMessage)
+-- Works on Kontra uLua
 -- ==========================================
 
 local radar = {
     WIDTH = 20,
     HEIGHT = 10,
     RANGE = 60,
-    UPDATE_TICK_RATE = 10, -- Update every 10 ticks
+    UPDATE_TICK_RATE = 10, -- Update every 10 ticks (approx 3 times per second at 30tps)
     BASE_EVENT_ID = 55000 -- High number to avoid conflicts
 }
 
@@ -45,9 +45,7 @@ local function BuildRadar(centerPeer)
                     gx = math.max(1, math.min(radar.WIDTH, gx))
                     gy = math.max(1, math.min(radar.HEIGHT, gy))
 
-                    if gx == cx and gy == cy then -- Don't overwrite the local player dot
-                        -- continue -- Lua 5.1 doesn't have continue, skip by wrapping in if
-                    else
+                    if not (gx == cx and gy == cy) then
                         local colorTag = "<color=#FF0000>R</color>" -- Red for enemy
                         if otherEntity.team == centerEntity.team then
                             colorTag = "<color=#00FF00>G</color>" -- Green for teammate
@@ -69,16 +67,17 @@ local function BuildRadar(centerPeer)
         end
         body = body .. " <color=#FFFFFF>|</color>\n"
     end
-    -- Replace quotes with a similar-looking character to avoid breaking the command string
-    local safeBody = body:gsub("\"", "'")
-    return top .. safeBody .. bottom
+    return top .. body .. bottom
 end
 
 Server = Server or {}
 
+function Server:Start()
+    print("ASCII Minimap v3.0 Initialized.")
+end
+
 -- Update on game tick
 function Server:OnGameTick(gameTick)
-    -- Throttle the update
     if gameTick % radar.UPDATE_TICK_RATE ~= 0 then return end
     if not Server or not Server.playerSessions then return end
 
@@ -87,36 +86,34 @@ function Server:OnGameTick(gameTick)
             local playerEntity = peer.Player.NetworkEntityPlayer
             if playerEntity and not playerEntity:get_Dead() then
                 local mapText = BuildRadar(peer)
-                -- Each player gets a unique event ID for their minimap
-                local eventId = radar.BASE_EVENT_ID + peer.Player.Id
-                -- Build the command string safely
-                local command = string.format("\"INFO\" \"%s\" \"3\" \"\" \"\" \"\" \"%d\" \"9999\" \"10\" \"10\" \"1\" \"1\" \"0\" \"12\" \"0\" \"0.1\"", mapText, eventId)
-                RconCommands.EventCmd(peer, command)
+                if mapText ~= "" then
+                    local eventId = radar.BASE_EVENT_ID + peer.Player.Id
+                    local players = { peer }
+
+                    ServerSendNetLib.EventMessage(players, {}, "", mapText, Util.EventType.None,
+                        Color32(0,0,0,0), Color32(0,0,0,0), -- Colors are ignored due to tags in text
+                        "", eventId, 2, 10, 10, 0, 0, 0, 12, 0, 0.1)
+                end
             end
         end
     end
 end
 
-function Server:OnPlayerDied(player, killer, weapon, headshot)
+local function ClearMinimapForPlayer(player)
     if player and player.Id ~= nil then
         local peer = Server.playerSessions[player.Id + 1]
         if peer then
-            -- Clear the minimap for the dead player
             local eventId = radar.BASE_EVENT_ID + player.Id
-            local command = string.format("\"INFO\" \"\" \"3\" \"\" \"\" \"\" \"%d\" \"0\"", eventId)
-            RconCommands.EventCmd(peer, command)
+            -- Send an empty message with duration 0 to clear the event
+            ServerSendNetLib.EventMessage({peer}, {}, "", "", Util.EventType.None, Color32(0,0,0,0), Color32(0,0,0,0), "", eventId, 0, 0,0,0,0,0,0,0,0)
         end
     end
 end
 
+function Server:OnPlayerDied(player, killer, weapon, headshot)
+    ClearMinimapForPlayer(player)
+end
+
 function Server:OnPlayerLeft(player)
-    if player and player.Id ~= nil then
-        local peer = Server.playerSessions[player.Id + 1]
-        if peer then
-             -- Clear the minimap for the player who left
-            local eventId = radar.BASE_EVENT_ID + player.Id
-            local command = string.format("\"INFO\" \"\" \"3\" \"\" \"\" \"\" \"%d\" \"0\"", eventId)
-            RconCommands.EventCmd(peer, command)
-        end
-    end
+    ClearMinimapForPlayer(player)
 end
